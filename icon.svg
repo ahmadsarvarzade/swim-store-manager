@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#0b1728"/>
+  <path d="M88 300c48-54 96-54 144 0s96 54 144 0 72-44 96-24v75c-40-26-64-26-96 10-48 54-96 54-144 0s-96-54-144 0-72 44-96 24v-75c40 26 64 26 96-10Z" fill="#55d6c2"/>
+  <path d="M142 155h228v60H142z" rx="12" fill="#fff" opacity=".95"/>
+  <text x="256" y="197" font-family="Arial,sans-serif" font-size="52" font-weight="700" text-anchor="middle" fill="#0b1728">SM</text>
+</svg>
