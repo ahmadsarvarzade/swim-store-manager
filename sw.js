@@ -1,4 +1,4 @@
-const CACHE_NAME = 'swim-store-manager-v2';
+const CACHE_NAME = 'swim-store-manager-v3';
 const APP_FILES = ['./', './index.html', './styles.css', './app.js', './manifest.webmanifest', './icon.svg', './apple-touch-icon.png', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (event) => {
