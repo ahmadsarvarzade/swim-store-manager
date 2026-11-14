@@ -434,9 +434,158 @@ function exportProductsCSV() {
   const rows=[['نام کالا','SKU','بارکد','دسته‌بندی','برند','مدل','رنگ','سایز','واحد','قیمت خرید','قیمت فروش','موجودی','حد هشدار','تأمین‌کننده','محل نگهداری','توضیحات'],...state.products.map(p=>[p.name,p.sku,p.barcode,p.category,p.brand,p.model,p.color,p.size,p.unit,p.cost,p.price,p.stock,p.minStock,p.supplier,p.location,p.notes])];
   const csv='\uFEFF'+rows.map(row=>row.map(value=>`"${String(value??'').replace(/"/g,'""')}"`).join(',')).join('\r\n');downloadFile(`products-${todayISO()}.csv`,csv,'text/csv');toast('خروجی کامل CSV کالاها آماده شد.');
 }
+
 function importBackup(file) {
-  const reader=new FileReader();reader.onload=async()=>{try{const parsed=JSON.parse(reader.result);const imported=parsed.state||parsed;if(!imported||!Array.isArray(imported.products)||!Array.isArray(imported.orders)||!Array.isArray(imported.customers)||!Array.isArray(imported.purchases)||!Array.isArray(imported.expenses)||!Array.isArray(imported.movements)||!Array.isArray(imported.cash)||!imported.settings)throw new Error('ساختار فایل پشتیبان معتبر نیست.');if(!confirm('با بازیابی این فایل، تمام اطلاعات فعلی با اطلاعات داخل پشتیبان جایگزین می‌شود. ادامه می‌دهی؟'))return;state={...defaultState(),...imported,settings:{...defaultState().settings,...imported.settings}};await persist();updateSidebarMeta();render();toast('اطلاعات پشتیبان بازیابی شد.');}catch(error){toast(error.message||'خواندن فایل ناموفق بود.','error');}};reader.readAsText(file);
+  if (!file) return;
+
+  if (file.size > 10 * 1024 * 1024) {
+    toast('حجم فایل پشتیبان نباید بیشتر از ۱۰ مگابایت باشد.', 'error');
+    return;
+  }
+
+  const reader = new FileReader();
+
+  reader.onload = async () => {
+    try {
+      const parsed = JSON.parse(reader.result);
+
+      if (
+        parsed.app && parsed.app !== 'swim-store-manager'
+      ) {
+        throw new Error('این فایل متعلق به اپ مدیریت فروشگاه شنا نیست.');
+      }
+
+      const imported = parsed.state || parsed;
+      const keys = [
+        'products',
+        'orders',
+        'customers',
+        'purchases',
+        'expenses',
+        'movements',
+        'cash'
+      ];
+
+      if (
+        !imported ||
+        !imported.settings ||
+        typeof imported.settings !== 'object' ||
+        keys.some(key => !Array.isArray(imported[key]))
+      ) {
+        throw new Error('ساختار فایل پشتیبان معتبر نیست.');
+      }
+
+      const summary = keys.map(
+        key => `${key}: ${imported[key].length}`
+      ).join('\n');
+
+      const choice = prompt(
+        'فایل پشتیبان معتبر است.\n\n' +
+        'تعداد اطلاعات داخل فایل:\n' + summary +
+        '\n\nروش بازیابی را انتخاب کن:\n' +
+        '1 = ادغام با اطلاعات فعلی (پیشنهادی)\n' +
+        '2 = جایگزینی کامل اطلاعات فعلی\n' +
+        'لغو = انصراف'
+      );
+
+      if (choice !== '1' && choice !== '2') return;
+
+      if (
+        choice === '2' &&
+        !confirm(
+          'هشدار: تمام اطلاعات فعلی با اطلاعات بک‌آپ جایگزین می‌شوند. ادامه می‌دهی؟'
+        )
+      ) return;
+
+      const safetyBackup = {
+        app: 'swim-store-manager',
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        state: state
+      };
+
+      const blob = new Blob(
+        [JSON.stringify(safetyBackup, null, 2)],
+        { type: 'application/json;charset=utf-8' }
+      );
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'swim-store-before-restore.json';
+      link.click();
+      URL.revokeObjectURL(url);
+
+      if (choice === '2') {
+        state = {
+          ...defaultState(),
+          ...imported,
+          settings: {
+            ...defaultState().settings,
+            ...imported.settings
+          }
+        };
+      } else {
+        const merged = { ...state };
+
+        keys.forEach(key => {
+          const current = Array.isArray(state[key]) ? state[key] : [];
+          const incoming = imported[key];
+          const result = [...current];
+          const ids = new Set(
+            current.filter(item => item.id != null).map(item => item.id)
+          );
+
+          incoming.forEach(item => {
+            if (item.id == null || !ids.has(item.id)) {
+              result.push(item);
+              if (item.id != null) ids.add(item.id);
+            } else if (key === 'products') {
+              const index = result.findIndex(
+                existing => existing.id === item.id
+              );
+
+              const product = result[index];
+              [
+                'barcode',
+                'brand',
+                'model',
+                'color',
+                'size',
+                'supplier',
+                'location'
+              ].forEach(field => {
+                if (!product[field] && item[field]) {
+                  product[field] = item[field];
+                }
+              });
+            }
+          });
+
+          merged[key] = result;
+        });
+
+        state = merged;
+      }
+
+      await persist();
+      updateSidebarMeta();
+      render();
+
+      toast(
+        choice === '1'
+          ? 'اطلاعات بک‌آپ با موفقیت ادغام شد.'
+          : 'اطلاعات بک‌آپ بازیابی شد.'
+      );
+
+    } catch (error) {
+      toast(error.message || 'خواندن فایل ناموفق بود.', 'error');
+    }
+  };
+
+  reader.readAsText(file, 'UTF-8');
 }
+
 function printHtml(content) {
   const win=window.open('','_blank');if(!win){toast('اجازه بازشدن پنجره چاپ را به مرورگر بده.','error');return;}win.document.write(`<!doctype html><html lang="fa" dir="rtl"><meta charset="utf-8"><title>چاپ</title><body style="font-family:Tahoma,sans-serif;padding:24px;color:#15243a">${content}<script>window.onload=()=>window.print()<\/script></body></html>`);win.document.close();
 }
