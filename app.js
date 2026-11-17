@@ -180,7 +180,7 @@ function productsView() {
   return `${pageHead('کالاها و انبار','مدیریت مشخصات تخصصی کالا، قیمت‌ها، موجودی و گردش انبار', `<button class="btn btn-primary" data-action="new-product">＋ افزودن کالا</button>`)}
     <div class="stats-grid">${statCard('تعداد اقلام', number(state.products.length), 'کالاهای تعریف‌شده', '▤','icon-blue')}${statCard('تعداد واحد موجود', number(sum(state.products,p=>p.stock)), 'جمع موجودی فیزیکی', '◫','icon-teal')}${statCard('ارزش خرید موجودی', money(value), 'بر اساس قیمت خرید ثبت‌شده', '◈','icon-orange')}${statCard('کالاهای کم‌موجود', number(state.products.filter(p=>p.stock<=p.minStock).length), 'برابر یا کمتر از حد هشدار', '⚑','icon-red')}</div>
     <div class="table-toolbar"><div class="search-box"><input id="tableSearch" value="${escapeHTML(searchTerm)}" placeholder="جست‌وجوی نام، SKU، بارکد، برند، مدل، رنگ یا سایز..."></div><span class="muted">${number(filtered.length)} کالا</span></div>
-    <div class="table-card"><div class="table-wrap">${filtered.length ? `<table><thead><tr><th>نام کالا</th><th>SKU / بارکد</th><th>برند / مدل</th><th>دسته‌بندی</th><th>رنگ / سایز</th><th>قیمت خرید</th><th>قیمت فروش</th><th>موجودی</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody>${filtered.map((product) => `<tr><td><span class="primary-cell">${escapeHTML(product.name)}</span><span class="secondary-cell">${escapeHTML(product.unit || 'عدد')}</span></td><td>${escapeHTML(product.sku || '—')}<span class="secondary-cell">${escapeHTML(product.barcode || '—')}</span></td><td>${escapeHTML(product.brand || '—')}<span class="secondary-cell">${escapeHTML(product.model || '—')}</span></td><td>${escapeHTML(product.category || 'عمومی')}</td><td>${escapeHTML([product.color,product.size].filter(Boolean).join(' / ') || '—')}</td><td>${money(product.cost)}</td><td>${money(product.price)}</td><td class="primary-cell">${number(product.stock)}</td><td>${product.stock === 0 ? '<span class="badge badge-red">ناموجود</span>' : product.stock <= product.minStock ? '<span class="badge badge-orange">کم‌موجود</span>' : '<span class="badge badge-green">موجود</span>'}</td><td><div class="action-cell"><button class="text-action" data-action="stock-product" data-id="${product.id}">موجودی</button><button class="text-action" data-action="edit-product" data-id="${product.id}">ویرایش</button></div></td></tr>`).join('')}</tbody></table>` : emptyState('هنوز کالایی ثبت نشده','برای شروع، کالاهای فروشگاه را با مشخصات، قیمت و موجودی اولیه اضافه کن.')}</div><div class="table-summary"><span>ارزش موجودی بر مبنای قیمت خرید</span><strong>${money(value)}</strong></div></div>
+    <div class="table-card"><div class="table-wrap">${filtered.length ? `<table><thead><tr><th>تصویر</th><th>نام کالا</th><th>SKU / بارکد</th><th>برند / مدل</th><th>دسته‌بندی</th><th>رنگ / سایز</th><th>قیمت خرید</th><th>قیمت فروش</th><th>موجودی</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody>${filtered.map((product) => `<tr> <td>${product.imageData   ? `<img src="${escapeHTML(product.imageData)}" alt="${escapeHTML(product.name)}" style="width:56px;height:56px;object-fit:contain;border-radius:8px;background:#fff;border:1px solid #e7edf3">`   : '<div style="width:56px;height:56px;border-radius:8px;background:#f3f6fa;display:grid;place-items:center;color:#9aa6b2;font-size:10px">بدون عکس</div>'} </td><td><span class="primary-cell">${escapeHTML(product.name)}</span><span class="secondary-cell">${escapeHTML(product.unit || 'عدد')}</span></td><td>${escapeHTML(product.sku || '—')}<span class="secondary-cell">${escapeHTML(product.barcode || '—')}</span></td><td>${escapeHTML(product.brand || '—')}<span class="secondary-cell">${escapeHTML(product.model || '—')}</span></td><td>${escapeHTML(product.category || 'عمومی')}</td><td>${escapeHTML([product.color,product.size].filter(Boolean).join(' / ') || '—')}</td><td>${money(product.cost)}</td><td>${money(product.price)}</td><td class="primary-cell">${number(product.stock)}</td><td>${product.stock === 0 ? '<span class="badge badge-red">ناموجود</span>' : product.stock <= product.minStock ? '<span class="badge badge-orange">کم‌موجود</span>' : '<span class="badge badge-green">موجود</span>'}</td><td><div class="action-cell"><button class="text-action" data-action="stock-product" data-id="${product.id}">موجودی</button><button class="text-action" data-action="edit-product" data-id="${product.id}">ویرایش</button></div></td></tr>`).join('')}</tbody></table>` : emptyState('هنوز کالایی ثبت نشده','برای شروع، کالاهای فروشگاه را با مشخصات، قیمت و موجودی اولیه اضافه کن.')}</div><div class="table-summary"><span>ارزش موجودی بر مبنای قیمت خرید</span><strong>${money(value)}</strong></div></div>
     <section class="panel" style="margin-top:16px"><div class="panel-head"><h3>آخرین گردش‌های انبار</h3><span>${number(state.movements.length)} رویداد ثبت‌شده</span></div><div class="table-wrap">${state.movements.length?`<table><thead><tr><th>تاریخ</th><th>کالا</th><th>نوع گردش</th><th>تعداد</th><th>علت</th></tr></thead><tbody>${[...state.movements].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,12).map(m=>`<tr><td>${shortDate(m.date)}</td><td class="primary-cell">${escapeHTML(m.productName)}</td><td>${m.type==='in'?'<span class="badge badge-green">ورود</span>':'<span class="badge badge-orange">خروج</span>'}</td><td>${number(m.qty)}</td><td>${escapeHTML(m.reason||'—')}</td></tr>`).join('')}</tbody></table>`:emptyState('گردش انباری ثبت نشده','با ورود، خروج یا فروش کالا، تاریخچه در این بخش ثبت می‌شود.')}</div></section>`;
 }
 
@@ -281,32 +281,192 @@ function modal(title, body, submitLabel, onSubmit, options = {}) {
 function closeModal() { $('#modalRoot').innerHTML = ''; }
 function field(label, name, value = '', type = 'text', extra = '') { return `<div class="field"><label>${label}</label><input name="${name}" type="${type}" value="${escapeHTML(value)}" ${extra}></div>`; }
 
+
 function openProductForm(product = null) {
   const editing = Boolean(product);
-  const p = product || {name:'',sku:'',barcode:'',category:'تجهیزات شنا',brand:'',model:'',color:'',size:'',unit:'عدد',cost:0,price:0,stock:0,minStock:state.settings.lowStockDefault,supplier:'',location:'',notes:''};
+  const p = product || {
+    name:'', sku:'', barcode:'', category:'تجهیزات شنا',
+    brand:'', model:'', color:'', size:'', unit:'عدد',
+    cost:0, price:0, stock:0,
+    minStock:state.settings.lowStockDefault,
+    supplier:'', location:'', notes:'', imageData:''
+  };
+
+  let previewObjectUrl = null;
+
   const body = `<div class="form-grid">
-    ${field('نام کالا *','name',p.name,'text','required maxlength="100')}
-    ${field('کد کالا / SKU','sku',p.sku || '')}${field('بارکد','barcode',p.barcode || '')}
-    ${field('دسته‌بندی','category',p.category || 'تجهیزات شنا')}${field('برند','brand',p.brand || '')}
-    ${field('مدل','model',p.model || '')}${field('رنگ','color',p.color || '')}${field('سایز','size',p.size || '')}
-    ${field('واحد شمارش','unit',p.unit || 'عدد')}${field('قیمت خرید واحد','cost',p.cost,'number','min="0" step="1" required')}
+    <div class="field full">
+      <label>تصویر محصول</label>
+      <input id="productImageInput" name="image" type="file" accept="image/*">
+      <div style="margin-top:10px;display:flex;align-items:center;gap:12px">
+        <img id="productImagePreview"
+          src="${escapeHTML(p.imageData || '')}"
+          alt="تصویر محصول"
+          style="width:100px;height:100px;object-fit:contain;border:1px solid #e7edf3;border-radius:10px;background:#fff;${p.imageData ? '' : 'display:none'}">
+        <span id="productImageEmpty" class="field-note" style="${p.imageData ? 'display:none' : ''}">هنوز تصویری انتخاب نشده است.</span>
+      </div>
+      ${p.imageData ? '<label style="margin-top:10px"><input type="checkbox" name="removeImage" value="yes"> حذف تصویر فعلی</label>' : ''}
+      <span class="field-note">تصویر از گالری انتخاب و برای کاهش حجم فشرده می‌شود.</span>
+    </div>
+
+    ${field('نام کالا *','name',p.name,'text','required maxlength="100"')}
+    ${field('کد کالا / SKU','sku',p.sku || '')}
+    ${field('بارکد','barcode',p.barcode || '')}
+    ${field('دسته‌بندی','category',p.category || 'تجهیزات شنا')}
+    ${field('برند','brand',p.brand || '')}
+    ${field('مدل','model',p.model || '')}
+    ${field('رنگ','color',p.color || '')}
+    ${field('سایز','size',p.size || '')}
+    ${field('واحد شمارش','unit',p.unit || 'عدد')}
+    ${field('قیمت خرید واحد','cost',p.cost,'number','min="0" step="1" required')}
     ${field('قیمت فروش واحد','price',p.price,'number','min="0" step="1" required')}
     ${field('موجودی فعلی','stock',p.stock,'number',`min="0" step="1" ${editing?'disabled':''} required`)}
     ${field('حد هشدار موجودی','minStock',p.minStock,'number','min="0" step="1" required')}
-    ${field('تأمین‌کننده پیش‌فرض','supplier',p.supplier || '')}${field('محل نگهداری','location',p.location || '')}
-    <div class="field full"><label>توضیحات</label><textarea name="notes" placeholder="توضیحات اختیاری">${escapeHTML(p.notes||'')}</textarea></div></div>
-    ${editing?'<div class="field-note" style="margin-top:10px">برای تغییر تعداد موجودی از گزینهٔ «موجودی» در فهرست کالاها استفاده کن تا سابقه انبار دقیق بماند.</div>':''}`;
-  modal(editing?'ویرایش کالا':'افزودن کالای جدید',body,editing?'ذخیره تغییرات':'افزودن کالا',async(data)=>{
-    const name=data.get('name').trim(); if(!name) throw new Error('نام کالا الزامی است.');
-    const sku=data.get('sku').trim(), barcode=data.get('barcode').trim();
-    if(sku && state.products.some(item=>String(item.sku||'').toLowerCase()===sku.toLowerCase() && item.id!==p.id)) throw new Error('این کد کالا قبلاً استفاده شده است.');
-    if(barcode && state.products.some(item=>String(item.barcode||'').toLowerCase()===barcode.toLowerCase() && item.id!==p.id)) throw new Error('این بارکد قبلاً برای کالای دیگری ثبت شده است.');
-    const payload={name,sku,barcode,category:data.get('category').trim(),brand:data.get('brand').trim(),model:data.get('model').trim(),color:data.get('color').trim(),size:data.get('size').trim(),unit:data.get('unit').trim()||'عدد',cost:toNumber(data.get('cost')),price:toNumber(data.get('price')),minStock:toNumber(data.get('minStock')),supplier:data.get('supplier').trim(),location:data.get('location').trim(),notes:data.get('notes').trim()};
-    if(editing) Object.assign(p,payload,{updatedAt:new Date().toISOString()});
-    else { const created={id:uid(),...payload,stock:toNumber(data.get('stock')),createdAt:new Date().toISOString()}; state.products.push(created); if(created.stock>0) state.movements.push({id:uid(),date:todayISO(),productId:created.id,productName:created.name,type:'in',qty:created.stock,reason:'موجودی اولیه'}); }
-    saveAndRender(editing?'اطلاعات کالا به‌روزرسانی شد.':'کالا با موفقیت اضافه شد.');
+    ${field('تأمین‌کننده پیش‌فرض','supplier',p.supplier || '')}
+    ${field('محل نگهداری','location',p.location || '')}
+    <div class="field full">
+      <label>توضیحات</label>
+      <textarea name="notes" placeholder="توضیحات اختیاری">${escapeHTML(p.notes||'')}</textarea>
+    </div>
+  </div>
+  ${editing?'<div class="field-note" style="margin-top:10px">برای تغییر تعداد موجودی از گزینهٔ «موجودی» در فهرست کالاها استفاده کن.</div>':''}`;
+
+  modal(editing?'ویرایش کالا':'افزودن کالای جدید',body,
+    editing?'ذخیره تغییرات':'افزودن کالا',
+    async(data)=>{
+
+      const name = data.get('name').trim();
+      if(!name) throw new Error('نام کالا الزامی است.');
+
+      const sku = data.get('sku').trim();
+      const barcode = data.get('barcode').trim();
+
+      if(sku && state.products.some(item =>
+        String(item.sku||'').toLowerCase()===sku.toLowerCase() && item.id!==p.id
+      )) throw new Error('این کد کالا قبلاً استفاده شده است.');
+
+      if(barcode && state.products.some(item =>
+        String(item.barcode||'').toLowerCase()===barcode.toLowerCase() && item.id!==p.id
+      )) throw new Error('این بارکد قبلاً برای کالای دیگری ثبت شده است.');
+
+      let imageData = p.imageData || '';
+      const imageFile = data.get('image');
+
+      if(imageFile && imageFile.size > 0) {
+        if(!imageFile.type.startsWith('image/')) {
+          throw new Error('فایل انتخاب‌شده تصویر معتبر نیست.');
+        }
+
+        if(imageFile.size > 8 * 1024 * 1024) {
+          throw new Error('حجم عکس باید کمتر از ۸ مگابایت باشد.');
+        }
+
+        const source = await new Promise((resolve,reject)=>{
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = () => reject(new Error('خواندن عکس ناموفق بود.'));
+          reader.readAsDataURL(imageFile);
+        });
+
+        const image = await new Promise((resolve,reject)=>{
+          const img = new Image();
+          img.onload = () => resolve(img);
+          img.onerror = () => reject(new Error('بازکردن تصویر ممکن نشد. لطفاً عکس JPG یا PNG انتخاب کن.'));
+          img.src = source;
+        });
+
+        const maxSide = 720;
+        const scale = Math.min(1,maxSide/Math.max(image.width,image.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1,Math.round(image.width*scale));
+        canvas.height = Math.max(1,Math.round(image.height*scale));
+
+        const context = canvas.getContext('2d');
+        if(!context) throw new Error('پردازش تصویر در مرورگر ممکن نیست.');
+
+        context.fillStyle = '#ffffff';
+        context.fillRect(0,0,canvas.width,canvas.height);
+        context.drawImage(image,0,0,canvas.width,canvas.height);
+
+        const compressed = await new Promise(resolve=>{
+          canvas.toBlob(resolve,'image/jpeg',0.72);
+        });
+
+        if(!compressed) throw new Error('فشرده‌سازی تصویر ناموفق بود.');
+
+        imageData = await new Promise((resolve,reject)=>{
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = () => reject(new Error('ذخیره تصویر ناموفق بود.'));
+          reader.readAsDataURL(compressed);
+        });
+      }
+
+      if(data.get('removeImage') === 'yes') imageData = '';
+
+      const payload = {
+        name, sku, barcode,
+        category:data.get('category').trim(),
+        brand:data.get('brand').trim(),
+        model:data.get('model').trim(),
+        color:data.get('color').trim(),
+        size:data.get('size').trim(),
+        unit:data.get('unit').trim() || 'عدد',
+        cost:toNumber(data.get('cost')),
+        price:toNumber(data.get('price')),
+        minStock:toNumber(data.get('minStock')),
+        supplier:data.get('supplier').trim(),
+        location:data.get('location').trim(),
+        notes:data.get('notes').trim(),
+        imageData
+      };
+
+      if(editing) {
+        Object.assign(p,payload,{updatedAt:new Date().toISOString()});
+      } else {
+        const created = {
+          id:uid(),
+          ...payload,
+          stock:toNumber(data.get('stock')),
+          createdAt:new Date().toISOString()
+        };
+
+        state.products.push(created);
+
+        if(created.stock>0) {
+          state.movements.push({
+            id:uid(),date:todayISO(),
+            productId:created.id,
+            productName:created.name,
+            type:'in',qty:created.stock,
+            reason:'موجودی اولیه'
+          });
+        }
+      }
+
+      saveAndRender(
+        editing?'اطلاعات کالا به‌روزرسانی شد.':'کالا با موفقیت اضافه شد.'
+      );
+    }
+  );
+
+  const imageInput = $('#productImageInput');
+  imageInput.addEventListener('change',()=>{
+    const file = imageInput.files?.[0];
+    if(!file) return;
+
+    if(previewObjectUrl) URL.revokeObjectURL(previewObjectUrl);
+    previewObjectUrl = URL.createObjectURL(file);
+
+    $('#productImagePreview').src = previewObjectUrl;
+    $('#productImagePreview').style.display = 'block';
+    $('#productImageEmpty').style.display = 'none';
+
+    const removeOption = $('[name="removeImage"]');
+    if(removeOption) removeOption.checked = false;
   });
 }
+
 
 function openStockForm(product) {
   const body=`<div class="notice">موجودی این کالا در حال حاضر <strong>${number(product.stock)} ${escapeHTML(product.unit||'عدد')}</strong> است. برای حفظ سابقه، هر تغییر تعداد در گردش انبار ثبت می‌شود.</div><div class="form-grid"><div class="field"><label>نوع عملیات</label><select name="type"><option value="in">ورود کالا</option><option value="out">خروج کالا</option><option value="adjust">تنظیم موجودی نهایی</option></select></div>${field('تعداد / موجودی نهایی','qty','1','number','min="0" step="1" required')}<div class="field full"><label>علت تغییر</label><input name="reason" required placeholder="مثلاً شمارش دوره‌ای، کالای معیوب، اصلاح موجودی"></div></div>`;
@@ -388,13 +548,13 @@ function openOrderForm() {
   ['discount','shipping','paid'].forEach(name=>$(`[name="${name}"]`).addEventListener('input',updateOrderPreview));
 }
 
-function viewOrder(order) {
+ function printInvoice(order) {   const customer = customerById(order.customerId);   const rows = order.items.map((item,index)=>`     <tr>       <td>${index+1}</td>       <td>${escapeHTML(item.name)}</td>       <td>${number(item.qty)}</td>       <td>${money(item.price)}</td>       <td>${money(item.qty*item.price)}</td>     </tr>   `).join('');    const subtotal = order.subtotal ?? sum(order.items,i=>i.qty*i.price);   const discount = order.discount || 0;   const shipping = order.shipping || 0;   const total = order.total || 0;   const paid = order.paid || 0;   const remaining = Math.max(0,total-paid);    const printable = `   <style>     @page { size:A4; margin:14mm; }     .invoice {max-width:850px;margin:auto;color:#17283d;font-family:Tahoma,Arial,sans-serif}     .invoice-head {display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #168f83;padding-bottom:18px}     .invoice h1 {font-size:24px;margin:0 0 8px}     .invoice h2 {font-size:17px;margin:0 0 8px}     .invoice p {font-size:12px;line-height:2;margin:4px 0}     .invoice .muted {color:#718096}     .invoice .info {display:grid;grid-template-columns:1fr 1fr;gap:20px;margin:22px 0}     .invoice .box {border:1px solid #dfe7ee;border-radius:8px;padding:13px}     .invoice table {width:100%;border-collapse:collapse;margin:20px 0}     .invoice th {background:#edf5f4;color:#263d4c}     .invoice th,.invoice td {border:1px solid #dfe7ee;padding:11px 8px;text-align:right;font-size:11px}     .invoice .totals {width:340px;max-width:100%;margin-right:auto}     .invoice .totals div {display:flex;justify-content:space-between;padding:7px;border-bottom:1px solid #e7edf3;font-size:12px}     .invoice .grand {font-weight:bold;font-size:15px;background:#edf8f5}     .invoice .footer {display:flex;justify-content:space-between;margin-top:55px}     .invoice .sign {width:42%;border-top:1px solid #aeb9c5;text-align:center;padding-top:10px;font-size:11px}     .invoice .cancelled {color:#bd3f4d;font-weight:bold;border:2px solid #bd3f4d;padding:8px}     @media print {body{padding:0!important}.invoice{width:100%}}   </style>    <section class="invoice">     <div class="invoice-head">       <div>         <h1>${escapeHTML(state.settings.storeName || 'فروشگاه تجهیزات شنا')}</h1>         <p>تلفن: ${escapeHTML(state.settings.phone || '—')}</p>       </div>       <div style="text-align:left">         <h2>فاکتور فروش</h2>         <p>شماره: ${escapeHTML(order.number)}</p>         <p>تاریخ: ${shortDate(order.date)}</p>         ${isCancelled(order)?'<p class="cancelled">این سفارش لغو شده است</p>':''}       </div>     </div>      <div class="info">       <div class="box">         <strong>مشخصات فروشنده</strong>         <p>${escapeHTML(state.settings.storeName || 'فروشگاه')}</p>         <p>تلفن: ${escapeHTML(state.settings.phone || '—')}</p>       </div>       <div class="box">         <strong>مشخصات خریدار</strong>         <p>نام: ${escapeHTML(order.customerName || 'مشتری حضوری')}</p>         <p>تلفن: ${escapeHTML(customer?.phone || '—')}</p>         <p>نشانی: ${escapeHTML(customer?.address || '—')}</p>       </div>     </div>      <table>       <thead>         <tr>           <th>ردیف</th><th>شرح کالا</th><th>تعداد</th>           <th>قیمت واحد</th><th>مبلغ کل</th>         </tr>       </thead>       <tbody>${rows}</tbody>     </table>      <div class="totals">       <div><span>جمع کالاها</span><strong>${money(subtotal)}</strong></div>       <div><span>تخفیف</span><strong>${money(discount)}</strong></div>       <div><span>هزینه ارسال</span><strong>${money(shipping)}</strong></div>       <div class="grand"><span>مبلغ نهایی</span><strong>${money(total)}</strong></div>       <div><span>مبلغ پرداخت‌شده</span><strong>${money(paid)}</strong></div>       <div><span>مانده حساب</span><strong>${money(remaining)}</strong></div>     </div>      ${order.notes?`<p style="margin-top:20px">توضیحات: ${escapeHTML(order.notes)}</p>`:''}      <div class="footer">       <div class="sign">امضای خریدار</div>       <div class="sign">مهر و امضای فروشنده</div>     </div>   </section>`;    printHtml(printable); }  function viewOrder(order) {
   const rows=order.items.map(item=>`<tr><td class="primary-cell">${escapeHTML(item.name)}</td><td>${number(item.qty)}</td><td>${money(item.price)}</td><td>${money(item.qty*item.price)}</td></tr>`).join('');
   const payments=state.cash.filter(entry=>entry.ref===order.id&&entry.type==='in');
-  const body=`<div class="activity-list" style="margin-bottom:16px"><div class="activity-item"><div><strong>${escapeHTML(order.number)}</strong><small>${shortDate(order.date)} · ${escapeHTML(order.customerName)}</small></div><span class="activity-amount">${statusBadge(order.status)}</span></div></div><div class="table-wrap"><table><thead><tr><th>کالا</th><th>تعداد</th><th>قیمت واحد</th><th>جمع</th></tr></thead><tbody>${rows}</tbody></table></div><div class="activity-list" style="margin-top:16px"><div class="activity-item"><div><strong>جمع کالاها</strong></div><span class="activity-amount">${money(order.subtotal)}</span></div><div class="activity-item"><div><strong>تخفیف و ارسال</strong></div><span class="activity-amount">−${money(order.discount)} / +${money(order.shipping)}</span></div><div class="activity-item"><div><strong>مبلغ نهایی</strong></div><span class="activity-amount">${money(order.total)}</span></div><div class="activity-item"><div><strong>پرداختی / مانده</strong></div><span class="activity-amount">${money(order.paid)} / ${money(order.total-order.paid)}</span></div></div>${order.notes?`<p class="field-note">یادداشت: ${escapeHTML(order.notes)}</p>`:''}${!isCancelled(order)?`<div class="form-grid" style="margin-top:15px"><div class="field"><label>به‌روزرسانی وضعیت سفارش</label><select id="orderStatusSelect"><option value="registered" ${order.status==='registered'?'selected':''}>ثبت‌شده</option><option value="processing" ${order.status==='processing'?'selected':''}>در حال آماده‌سازی</option><option value="shipped" ${order.status==='shipped'?'selected':''}>ارسال‌شده</option><option value="delivered" ${order.status==='delivered'?'selected':''}>تحویل‌شده</option></select></div><div class="field" style="justify-content:end"><button class="btn btn-secondary" type="button" data-update-order-status="${order.id}">ذخیره وضعیت</button></div></div>`:''}<div class="settings-actions" style="margin-top:15px"><button class="btn btn-secondary" type="button" data-print-order="${order.id}">چاپ سفارش</button>${!isCancelled(order)?`<button class="btn btn-secondary" type="button" data-add-payment="${order.id}">＋ ثبت دریافت تکمیلی</button>`:''}</div>`;
+  const body=`<div class="activity-list" style="margin-bottom:16px"><div class="activity-item"><div><strong>${escapeHTML(order.number)}</strong><small>${shortDate(order.date)} · ${escapeHTML(order.customerName)}</small></div><span class="activity-amount">${statusBadge(order.status)}</span></div></div><div class="table-wrap"><table><thead><tr><th>کالا</th><th>تعداد</th><th>قیمت واحد</th><th>جمع</th></tr></thead><tbody>${rows}</tbody></table></div><div class="activity-list" style="margin-top:16px"><div class="activity-item"><div><strong>جمع کالاها</strong></div><span class="activity-amount">${money(order.subtotal)}</span></div><div class="activity-item"><div><strong>تخفیف و ارسال</strong></div><span class="activity-amount">−${money(order.discount)} / +${money(order.shipping)}</span></div><div class="activity-item"><div><strong>مبلغ نهایی</strong></div><span class="activity-amount">${money(order.total)}</span></div><div class="activity-item"><div><strong>پرداختی / مانده</strong></div><span class="activity-amount">${money(order.paid)} / ${money(order.total-order.paid)}</span></div></div>${order.notes?`<p class="field-note">یادداشت: ${escapeHTML(order.notes)}</p>`:''}${!isCancelled(order)?`<div class="form-grid" style="margin-top:15px"><div class="field"><label>به‌روزرسانی وضعیت سفارش</label><select id="orderStatusSelect"><option value="registered" ${order.status==='registered'?'selected':''}>ثبت‌شده</option><option value="processing" ${order.status==='processing'?'selected':''}>در حال آماده‌سازی</option><option value="shipped" ${order.status==='shipped'?'selected':''}>ارسال‌شده</option><option value="delivered" ${order.status==='delivered'?'selected':''}>تحویل‌شده</option></select></div><div class="field" style="justify-content:end"><button class="btn btn-secondary" type="button" data-update-order-status="${order.id}">ذخیره وضعیت</button></div></div>`:''}<div class="settings-actions" style="margin-top:15px"><button class="btn btn-secondary" type="button" data-print-order="${order.id}">چاپ فاکتور</button>${!isCancelled(order)?`<button class="btn btn-secondary" type="button" data-add-payment="${order.id}">＋ ثبت دریافت تکمیلی</button>`:''}</div>`;
   modal(`جزئیات سفارش ${order.number}`,body,'بستن',async()=>true,{wide:true});
   const form=$('#modalForm');$('button[type="submit"]',form).textContent='بستن';
-  $('[data-print-order]',form).addEventListener('click',()=>{const printable=`<h2>فاکتور ${escapeHTML(order.number)}</h2><p>${escapeHTML(order.customerName)} | ${shortDate(order.date)}</p><table border="1" cellpadding="8" cellspacing="0"><tr><th>کالا</th><th>تعداد</th><th>قیمت</th><th>جمع</th></tr>${rows}</table><h3>مبلغ نهایی: ${money(order.total)}</h3>`;printHtml(printable);});
+  $('[data-print-order]',form).addEventListener('click',()=>printInvoice(order));('click',()=>{const printable=`<h2>فاکتور ${escapeHTML(order.number)}</h2><p>${escapeHTML(order.customerName)} | ${shortDate(order.date)}</p><table border="1" cellpadding="8" cellspacing="0"><tr><th>کالا</th><th>تعداد</th><th>قیمت</th><th>جمع</th></tr>${rows}</table><h3>مبلغ نهایی: ${money(order.total)}</h3>`;printHtml(printable);});
   $('[data-add-payment]',form)?.addEventListener('click',()=>{closeModal();openPaymentForm(order);});
   $('[data-update-order-status]',form)?.addEventListener('click',()=>{order.status=$('#orderStatusSelect').value;order.updatedAt=new Date().toISOString();persist().then(()=>{closeModal();updateSidebarMeta();render();toast('وضعیت سفارش به‌روزرسانی شد.');}).catch(()=>toast('ذخیره وضعیت ناموفق بود.','error'));});
 }
@@ -438,7 +598,7 @@ function exportProductsCSV() {
 function importBackup(file) {
   if (!file) return;
 
-  if (file.size > 10 * 1024 * 1024) {
+  if (file.size > 50 * 1024 * 1024) {
     toast('حجم فایل پشتیبان نباید بیشتر از ۱۰ مگابایت باشد.', 'error');
     return;
   }
@@ -553,7 +713,8 @@ function importBackup(file) {
                 'color',
                 'size',
                 'supplier',
-                'location'
+                'location',
+                'imageData'
               ].forEach(field => {
                 if (!product[field] && item[field]) {
                   product[field] = item[field];
