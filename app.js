@@ -599,7 +599,7 @@ function importBackup(file) {
   if (!file) return;
 
   if (file.size > 50 * 1024 * 1024) {
-    toast('حجم فایل پشتیبان نباید بیشتر از ۱۰ مگابایت باشد.', 'error');
+    toast('حجم فایل پشتیبان نباید بیشتر از ۵۰ مگابایت باشد.', 'error');
     return;
   }
 
