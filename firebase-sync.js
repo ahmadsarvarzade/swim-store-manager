@@ -1,9 +1,6 @@
 /*
- * Swim Store Manager - Firebase bridge
- * Requires firebase-app-compat.js, firebase-auth-compat.js and
- * firebase-database-compat.js to be loaded before this file.
- * This file intentionally does not read passwords or write to the database
- * until the authenticated owner explicitly calls a method.
+ * Swim Store Manager - Firebase compatibility bridge
+ * Firebase compat SDK scripts must be loaded before this file.
  */
 (function () {
   'use strict';
@@ -23,9 +20,10 @@
     'products', 'customers', 'purchases', 'orders',
     'expenses', 'movements', 'cash'
   ];
+  const MAX_STATE_BYTES = 10 * 1024 * 1024;
 
   if (!window.firebase || !window.firebase.initializeApp) {
-    window.SwimStoreFirebaseError = 'کتابخانه Firebase بارگذاری نشده است.';
+    window.SwimStoreFirebaseError = 'Ú©ØªØ§Ø¨Ø®Ø§Ù†Ù‡ Firebase Ø¨Ø§Ø±Ú¯Ø°Ø§Ø±ÛŒ Ù†Ø´Ø¯Ù‡ Ø§Ø³Øª. Ø§ØªØµØ§Ù„ Ø§ÛŒÙ†ØªØ±Ù†Øª Ø±Ø§ Ø¨Ø±Ø±Ø³ÛŒ Ùˆ ØµÙØ­Ù‡ Ø±Ø§ Ø¯ÙˆØ¨Ø§Ø±Ù‡ Ø¨Ø§Ø² Ú©Ù†.';
     return;
   }
 
@@ -36,7 +34,7 @@
       : window.firebase.initializeApp(FIREBASE_CONFIG);
   } catch (error) {
     console.error('Firebase initialization failed:', error);
-    window.SwimStoreFirebaseError = 'راه‌اندازی Firebase ناموفق بود.';
+    window.SwimStoreFirebaseError = 'Ø±Ø§Ù‡â€ŒØ§Ù†Ø¯Ø§Ø²ÛŒ Firebase Ù†Ø§Ù…ÙˆÙÙ‚ Ø¨ÙˆØ¯.';
     return;
   }
 
@@ -46,21 +44,35 @@
 
   function requireOwner() {
     const user = auth.currentUser;
-    if (!user) throw new Error('ابتدا با حساب مالک وارد شو.');
+    if (!user) throw new Error('Ø§Ø¨ØªØ¯Ø§ Ø¨Ø§ Ø­Ø³Ø§Ø¨ Ù…Ø§Ù„Ú© ÙˆØ§Ø±Ø¯ Ø´Ùˆ.');
     if (user.uid !== OWNER_UID) {
       auth.signOut().catch(() => {});
-      throw new Error('این حساب اجازه دسترسی به فروشگاه را ندارد.');
+      throw new Error('Ø§ÛŒÙ† Ø­Ø³Ø§Ø¨ Ø§Ø¬Ø§Ø²Ù‡ Ø¯Ø³ØªØ±Ø³ÛŒ Ø¨Ù‡ ÙØ±ÙˆØ´Ú¯Ø§Ù‡ Ø±Ø§ Ù†Ø¯Ø§Ø±Ø¯.');
     }
     return user;
   }
 
-  function isEmptyState(state) {
-    if (!state || typeof state !== 'object') return true;
-    return COLLECTIONS.every((key) => !Array.isArray(state[key]) || state[key].length === 0);
+  function isEmptyState(value) {
+    if (!value || typeof value !== 'object') return true;
+    return COLLECTIONS.every((key) =>
+      !Array.isArray(value[key]) || value[key].length === 0
+    );
   }
 
-  function safeStringify(value) {
-    try { return JSON.stringify(value ?? null); }
+  function stableValue(value) {
+    if (Array.isArray(value)) return value.map(stableValue);
+    if (value && typeof value === 'object') {
+      const result = {};
+      Object.keys(value).sort().forEach((key) => {
+        result[key] = stableValue(value[key]);
+      });
+      return result;
+    }
+    return value;
+  }
+
+  function stableStringify(value) {
+    try { return JSON.stringify(stableValue(value ?? null)); }
     catch (_) { return ''; }
   }
 
@@ -76,15 +88,21 @@
     const r = remote || {};
     const result = {};
     const keys = new Set([...Object.keys(b), ...Object.keys(l), ...Object.keys(r)]);
+
     keys.forEach((key) => {
-      const localChanged = safeStringify(l[key]) !== safeStringify(b[key]);
-      const remoteChanged = safeStringify(r[key]) !== safeStringify(b[key]);
+      const localChanged = stableStringify(l[key]) !== stableStringify(b[key]);
+      const remoteChanged = stableStringify(r[key]) !== stableStringify(b[key]);
+
       if (localChanged && !remoteChanged) result[key] = l[key];
       else if (remoteChanged && !localChanged) result[key] = r[key];
-      else if (localChanged && remoteChanged) result[key] = l.updatedAt && r.updatedAt && Date.parse(r.updatedAt) > Date.parse(l.updatedAt) ? r[key] : l[key];
-      else if (Object.prototype.hasOwnProperty.call(r, key)) result[key] = r[key];
+      else if (localChanged && remoteChanged) {
+        result[key] = Object.prototype.hasOwnProperty.call(r, key) && !Object.prototype.hasOwnProperty.call(l, key)
+          ? r[key]
+          : l[key];
+      } else if (Object.prototype.hasOwnProperty.call(r, key)) result[key] = r[key];
       else if (Object.prototype.hasOwnProperty.call(l, key)) result[key] = l[key];
     });
+
     return result;
   }
 
@@ -93,6 +111,7 @@
     const local = localState || {};
     const remote = remoteState || {};
     const conflicts = [];
+
     const merged = {
       ...remote,
       ...local,
@@ -115,29 +134,34 @@
         const l = localById.get(id);
         const r = remoteById.get(id);
 
-        // This application currently has no ordinary delete action for records.
-        // Keep a record removed on one side only when it was also absent remotely.
+        // The current application has no regular delete action for these records.
         if (!l && r) { result.push(r); return; }
         if (l && !r) { result.push(l); return; }
         if (!l && !r) return;
+
         if (!b) {
-          if (l && r && safeStringify(l) !== safeStringify(r)) {
+          if (l && r && stableStringify(l) !== stableStringify(r)) {
             const winner = timeOf(l) >= timeOf(r) ? l : r;
-            conflicts.push({ collection: key, id, local: l, remote: r, detectedAt: new Date().toISOString() });
+            conflicts.push({ collection: key, id, detectedAt: new Date().toISOString() });
             result.push(winner);
-          } else result.push(l || r);
+          } else {
+            result.push(l || r);
+          }
           return;
         }
 
-        const localChanged = safeStringify(l) !== safeStringify(b);
-        const remoteChanged = safeStringify(r) !== safeStringify(b);
+        const localChanged = stableStringify(l) !== stableStringify(b);
+        const remoteChanged = stableStringify(r) !== stableStringify(b);
+
         if (localChanged && !remoteChanged) result.push(l);
         else if (remoteChanged && !localChanged) result.push(r);
-        else if (localChanged && remoteChanged && safeStringify(l) !== safeStringify(r)) {
+        else if (localChanged && remoteChanged && stableStringify(l) !== stableStringify(r)) {
           const winner = timeOf(l) >= timeOf(r) ? l : r;
-          conflicts.push({ collection: key, id, local: l, remote: r, detectedAt: new Date().toISOString() });
+          conflicts.push({ collection: key, id, detectedAt: new Date().toISOString() });
           result.push(winner);
-        } else result.push(l || r);
+        } else {
+          result.push(l || r);
+        }
       });
 
       merged[key] = result;
@@ -153,15 +177,18 @@
 
   async function signIn(email, password) {
     await authReady;
-    const credential = await auth.signInWithEmailAndPassword(String(email || '').trim(), String(password || ''));
+    const credential = await auth.signInWithEmailAndPassword(
+      String(email || '').trim(),
+      String(password || '')
+    );
     if (!credential.user || credential.user.uid !== OWNER_UID) {
       await auth.signOut();
-      throw new Error('این ایمیل به حساب مالک فروشگاه تعلق ندارد.');
+      throw new Error('Ø§ÛŒÙ† Ø§ÛŒÙ…ÛŒÙ„ Ø¨Ù‡ Ø­Ø³Ø§Ø¨ Ù…Ø§Ù„Ú© ÙØ±ÙˆØ´Ú¯Ø§Ù‡ ØªØ¹Ù„Ù‚ Ù†Ø¯Ø§Ø±Ø¯.');
     }
     return { uid: credential.user.uid, email: credential.user.email || '' };
   }
 
-  async function signOut() {
+  async function signOutOwner() {
     await auth.signOut();
   }
 
@@ -169,7 +196,7 @@
     return auth.onAuthStateChanged((user) => {
       if (user && user.uid !== OWNER_UID) {
         auth.signOut().catch(() => {});
-        callback(null, new Error('حساب واردشده مالک فروشگاه نیست.'));
+        callback(null, new Error('Ø­Ø³Ø§Ø¨ ÙˆØ§Ø±Ø¯Ø´Ø¯Ù‡ Ù…Ø§Ù„Ú© ÙØ±ÙˆØ´Ú¯Ø§Ù‡ Ù†ÛŒØ³Øª.'));
         return;
       }
       callback(user ? { uid: user.uid, email: user.email || '' } : null, null);
@@ -177,23 +204,31 @@
   }
 
   function observeConnection(callback, onError) {
-    return database.ref('.info/connected').on('value', (snapshot) => {
-      callback(snapshot.val() === true);
-    }, onError);
+    const target = database.ref('.info/connected');
+    const listener = (snapshot) => callback(snapshot.val() === true);
+    target.on('value', listener, onError);
+    return () => target.off('value', listener);
   }
 
   async function readRemoteState() {
     const snapshot = await storeRef().once('value');
     const envelope = snapshot.val();
     return envelope && envelope.state
-      ? { state: envelope.state, revision: Number(envelope.revision || 0), updatedAt: envelope.updatedAt || null }
-      : { state: null, revision: 0, updatedAt: null };
+      ? {
+          state: envelope.state,
+          revision: Number(envelope.revision || 0),
+          updatedAt: envelope.updatedAt || null,
+          conflicts: Array.isArray(envelope.conflicts) ? envelope.conflicts : []
+        }
+      : { state: null, revision: 0, updatedAt: null, conflicts: [] };
   }
 
   async function syncState(localState, baseState) {
     await authReady;
     const target = storeRef();
     let latestConflicts = [];
+    let tooLarge = false;
+
     const result = await target.transaction((current) => {
       const remoteState = current && current.state ? current.state : null;
       let mergedState;
@@ -210,17 +245,29 @@
         latestConflicts = merged.conflicts;
       }
 
+      const serialized = JSON.stringify(mergedState);
+      if (new Blob([serialized]).size > MAX_STATE_BYTES) {
+        tooLarge = true;
+        return;
+      }
+
       return {
         schemaVersion: 1,
         revision: Number(current && current.revision || 0) + 1,
         updatedAt: new Date().toISOString(),
         lastWriterUid: OWNER_UID,
         state: mergedState,
-        conflicts: latestConflicts.length ? latestConflicts.slice(-50) : (current && current.conflicts ? current.conflicts : [])
+        conflicts: latestConflicts.length
+          ? latestConflicts.slice(-50)
+          : (current && Array.isArray(current.conflicts) ? current.conflicts : [])
       };
     }, undefined, false);
 
-    if (!result.committed) throw new Error('همگام‌سازی در سرور ثبت نشد.');
+    if (tooLarge) {
+      throw new Error('Ø­Ø¬Ù… Ú©Ù„ Ø§Ø·Ù„Ø§Ø¹Ø§Øª Ùˆ ØªØµØ§ÙˆÛŒØ± Ø¨Ø±Ø§ÛŒ Ù‡Ù…Ú¯Ø§Ù…â€ŒØ³Ø§Ø²ÛŒ Ø²ÛŒØ§Ø¯ Ø´Ø¯Ù‡ Ø§Ø³Øª. Ø­Ø¬Ù… ØªØµØ§ÙˆÛŒØ± Ø±Ø§ Ú©Ø§Ù‡Ø´ Ø¨Ø¯Ù‡.');
+    }
+    if (!result.committed) throw new Error('Ù‡Ù…Ú¯Ø§Ù…â€ŒØ³Ø§Ø²ÛŒ Ø¯Ø± Ø³Ø±ÙˆØ± Ø«Ø¨Øª Ù†Ø´Ø¯.');
+
     const envelope = result.snapshot.val();
     return {
       state: envelope && envelope.state ? envelope.state : localState,
@@ -231,7 +278,8 @@
   }
 
   function observeStore(callback, onError) {
-    return storeRef().on('value', (snapshot) => {
+    const target = storeRef();
+    const listener = (snapshot) => {
       const envelope = snapshot.val();
       callback(envelope && envelope.state ? {
         state: envelope.state,
@@ -239,20 +287,23 @@
         updatedAt: envelope.updatedAt || null,
         conflicts: Array.isArray(envelope.conflicts) ? envelope.conflicts : []
       } : null);
-    }, onError);
+    };
+    target.on('value', listener, onError);
+    return () => target.off('value', listener);
   }
 
   window.SwimStoreFirebase = Object.freeze({
     ownerUid: OWNER_UID,
     authReady,
     signIn,
-    signOut,
+    signOut: signOutOwner,
     observeAuth,
     observeConnection,
     readRemoteState,
     syncState,
     observeStore,
     mergeStates,
-    isEmptyState
+    isEmptyState,
+    stableStringify
   });
 })();
