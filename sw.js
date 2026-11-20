@@ -1,4 +1,4 @@
-const CACHE_NAME = 'swim-store-manager-v6';
+const CACHE_NAME = 'swim-store-manager-v7';
 const APP_FILES = [
   './',
   './index.html',
@@ -13,13 +13,37 @@ const APP_FILES = [
   './icon-512.png'
 ];
 
+// Firebase compat SDK CDN URLs follow /<version>/<filename>.
 const FIREBASE_CDN_ORIGIN = 'https://www.gstatic.com';
-const FIREBASE_SDK_PREFIX = '/firebasejs/13.4.0/';
+const FIREBASE_SDK_PREFIX = '/13.4.0/';
+const FIREBASE_SDK_URLS = [
+  'https://www.gstatic.com/13.4.0/firebase-app-compat.js',
+  'https://www.gstatic.com/13.4.0/firebase-auth-compat.js',
+  'https://www.gstatic.com/13.4.0/firebase-database-compat.js'
+];
+
+async function cacheFirebaseSdk(cache) {
+  await Promise.all(FIREBASE_SDK_URLS.map(async (url) => {
+    try {
+      const request = new Request(url, { mode: 'no-cors' });
+      const response = await fetch(request);
+      if (response && (response.ok || response.type === 'opaque')) {
+        await cache.put(request, response);
+      }
+    } catch (error) {
+      // CDN caching is best-effort; it must not block local app installation.
+      console.warn('Firebase SDK pre-cache skipped:', url, error);
+    }
+  }));
+}
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(APP_FILES))
+      .then(async (cache) => {
+        await cache.addAll(APP_FILES);
+        await cacheFirebaseSdk(cache);
+      })
       .then(() => self.skipWaiting())
   );
 });
@@ -51,20 +75,16 @@ self.addEventListener('fetch', (event) => {
         const isFirebaseSdk = requestUrl.origin === FIREBASE_CDN_ORIGIN
           && requestUrl.pathname.startsWith(FIREBASE_SDK_PREFIX)
           && event.request.destination === 'script';
-
-        // Classic cross-origin script requests can return opaque responses.
-        // Cache API allows storing these even though response.ok is false.
         const cacheableFirebaseResponse = isFirebaseSdk
           && (response.ok || response.type === 'opaque');
         const cacheableAppResponse = isAppAsset && response.ok;
 
         if (cacheableAppResponse || cacheableFirebaseResponse) {
           const copy = response.clone();
-          return caches.open(CACHE_NAME)
-            .then((cache) => cache.put(event.request, copy))
-            .then(() => response);
+          event.waitUntil(
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy))
+          );
         }
-
         return response;
       }).catch(() => {
         const requestUrl = new URL(event.request.url);
