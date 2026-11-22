@@ -25,7 +25,7 @@
   let stopAuth = null;
   let stopConnection = null;
   let stopStore = null;
-  let persistWrapped = false;
+  let persistWrapped = false;  // Track local writes so cloud sync cannot replace newer local data. let localMutationVersion = 0;
 
   const shell = $('.app-shell');
   if (shell) shell.style.display = 'none';
