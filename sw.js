@@ -1,4 +1,4 @@
-const CACHE_NAME = 'swim-store-manager-v10-cash-products-fx';
+const CACHE_NAME = 'swim-store-manager-v11-sync-race-fix';
 const APP_FILES = [
   './',
   './index.html',
