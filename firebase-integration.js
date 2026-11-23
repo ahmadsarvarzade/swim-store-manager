@@ -146,17 +146,27 @@
   }
 
   function installPersistenceHook() {
-    if (persistWrapped) return;
-    const originalPersist = persist;
-    persist = function (...args) {
-      return originalPersist.apply(this, args).then((result) => {
-        if (currentUser && !applyingRemote) scheduleSync(600);
-        return result;
-      });
-    };
-    persistWrapped = true;
-  }
+  if (persistWrapped) return;
 
+  const originalPersist = persist;
+
+  persist = function (...args) {
+    const isLocalWrite = !applyingRemote;
+
+    if (isLocalWrite) {
+      localMutationVersion += 1;
+    }
+
+    return originalPersist.apply(this, args).then((result) => {
+      if (currentUser && isLocalWrite) {
+        scheduleSync(600);
+      }
+      return result;
+    });
+  };
+
+  persistWrapped = true;
+}
   function dashboardDeviceShortcuts() {
     if (typeof dashboardView !== 'function') return;
     const originalDashboardView = dashboardView;
@@ -194,64 +204,97 @@
   }
 
   async function performSync() {
-    if (!currentUser || !appReady || !bridge() || !connected || !navigator.onLine) return false;
-    if (syncing) {
-      pendingSync = true;
-      return false;
+  if (!currentUser || !appReady || !bridge() || !connected || !navigator.onLine) return false;
+  if (syncing) {
+    pendingSync = true;
+    return false;
+  }
+
+  syncing = true;
+  let syncSucceeded = false;
+
+  try {
+    const remote = await bridge().readRemoteState();
+    const base = await readSyncBase();
+    const local = snapshotLocalState();
+    let result;
+
+    if (!remote.state) {
+      result = await bridge().syncState(local, base);
+    } else if (!base && bridge().isEmptyState(local)) {
+      result = remote;
+    } else if (base && same(local, base) && !same(remote.state, base)) {
+      result = remote;
+    } else if (same(local, remote.state)) {
+      result = remote;
+    } else {
+      result = await bridge().syncState(local, base);
     }
 
-    syncing = true;
-    let syncSucceeded = false;
-    try {
-      const remote = await bridge().readRemoteState();
-      const base = await readSyncBase();
-      const local = snapshotLocalState();
-      let result;
+    if (!result || !result.state) {
+      throw new Error('پاسخ دیتابیس ابری معتبر نیست.');
+    }
 
-      if (!remote.state) {
-        result = await bridge().syncState(local, base);
-      } else if (!base && bridge().isEmptyState(local)) {
-        result = remote;
-      } else if (base && same(local, base) && !same(remote.state, base)) {
-        result = remote;
-      } else if (same(local, remote.state)) {
-        result = remote;
-      } else {
-        result = await bridge().syncState(local, base);
-      }
+    // Detect any local edit made while the cloud request was in flight.
+    const localChangedDuringSync = !same(snapshotLocalState(), local);
 
-      if (!result || !result.state) throw new Error('پاسخ دیتابیس ابری معتبر نیست.');
+    if (localChangedDuringSync) {
+      // Keep the newer local state. The next pass merges it against the
+      // just-committed cloud state instead of replacing it with an old snapshot.
+      pendingSync = true;
+    } else if (!same(local, result.state)) {
+      await applyRemoteState(result.state);
+
+      // A local edit may happen while the remote state is being persisted.
+      // Check again because that write must also be sent to Firebase.
       if (!same(snapshotLocalState(), result.state)) {
-        await applyRemoteState(result.state);
+        pendingSync = true;
       }
-      await saveSyncBase(result.state);
-      lastRevision = Math.max(lastRevision, Number(result.revision || 0));
-      syncSucceeded = true;
+    }
 
-      const conflictCount = Array.isArray(result.conflicts) ? result.conflicts.length : 0;
+    await saveSyncBase(result.state);
+    lastRevision = Math.max(lastRevision, Number(result.revision || 0));
+    syncSucceeded = true;
+
+    const conflictCount = Array.isArray(result.conflicts)
+      ? result.conflicts.length
+      : 0;
+
+    if (localChangedDuringSync || pendingSync) {
+      setStatus('تغییرات جدید این دستگاه حفظ شد · همگام‌سازی ادامه دارد', 'pending');
+    } else {
       setStatus(
         conflictCount
           ? `همگام شد · ${conflictCount} تغییر هم‌زمان`
           : 'همگام‌سازی ابری انجام شد',
         conflictCount ? 'pending' : 'normal'
       );
-    } catch (error) {
-      console.warn('Cloud sync remains pending:', error);
-      const message = error && error.message ? error.message : 'اتصال ابری برقرار نشد.';
-      setStatus(
-        message.includes('حجم کل اطلاعات') ? 'حجم اطلاعات برای همگام‌سازی زیاد است' : 'ذخیره محلی فعال · ارسال پس از اتصال',
-        'pending'
-      );
-    } finally {
-      syncing = false;
-      if (pendingSync || pendingRemoteRevision > lastRevision) {
-        pendingSync = false;
-        pendingRemoteRevision = 0;
-        if (connected && navigator.onLine) window.setTimeout(performSync, 200);
+    }
+  } catch (error) {
+    console.warn('Cloud sync remains pending:', error);
+    const message = error && error.message
+      ? error.message
+      : 'اتصال ابری برقرار نشد.';
+    setStatus(
+      message.includes('حجم کل اطلاعات')
+        ? 'حجم اطلاعات برای همگام‌سازی زیاد است'
+        : 'ذخیره محلی فعال · ارسال پس از اتصال',
+      'pending'
+    );
+  } finally {
+    syncing = false;
+    if (pendingSync || pendingRemoteRevision > lastRevision) {
+      pendingSync = false;
+      pendingRemoteRevision = 0;
+      if (connected && navigator.onLine) {
+        window.setTimeout(performSync, 200);
       }
     }
-    return syncSucceeded;
   }
+
+  return syncSucceeded;
+}
+
 
   function scheduleSync(delay = 700) {
     if (!currentUser || !appReady) return;
